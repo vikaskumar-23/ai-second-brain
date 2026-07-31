@@ -1,7 +1,7 @@
 # Inbox Digest — Design Spec
 
-**Date:** 2026-08-01 (rev. 2 — adds Google Calendar task delivery)
-**Status:** Pending user re-approval after Calendar revision
+**Date:** 2026-08-01 (rev. 3 — adds learned reply-voice profile)
+**Status:** Pending user re-approval after voice-profile revision
 
 ## Summary
 
@@ -9,8 +9,9 @@ A small, resume-showcase project: a Claude Code **skill** that turns Gmail
 inbox activity into three things a person actually wants each day:
 
 1. A plain-English **summary** of what came in.
-2. **Proposed replies**, saved as real Gmail drafts for the user to edit and
-   send — never auto-sent.
+2. **Proposed replies**, drafted in the user's own writing voice (learned
+   from their sent mail — see rev. 3), saved as real Gmail drafts for the
+   user to edit and send — never auto-sent.
 3. **Suggested tasks**, created as real **Google Calendar events** (not a
    markdown list — see rev. 2 note below).
 
@@ -26,12 +27,20 @@ connector configured, driven by a skill prompt plus:
   Gmail side deliberately stays code-free because the MCP connector
   already provides it for free; Calendar doesn't have that shortcut, so
   it gets the real API client instead.
+- **A persisted voice profile** (`VOICE.md`), read by `/inbox-digest` when
+  drafting replies, produced/refreshed by a second skill (`/learn-voice`).
 
 **Rev. 2 change:** originally tasks were appended to a local `TASKS.md`.
 That's now replaced entirely by Google Calendar events, per explicit
 request, to (a) get real due-date/reminder behavior a static file can't
 give, and (b) put an actual piece of programming-language code in the
 repo for portfolio purposes.
+
+**Rev. 3 change:** adds a "memory" of the user's own reply style, so
+drafted replies sound like something the user would actually write, not a
+generic assistant voice. This is the small-scope analog of the reference
+project's `SOUL.md`/persistent-persona layer — one markdown file, no
+vector DB, no cross-session agent memory beyond that file.
 
 ## Non-goals (v1)
 
@@ -48,6 +57,11 @@ repo for portfolio purposes.
 - No multi-account support, no non-Gmail providers.
 - No general-purpose calendar management (editing/deleting existing
   events, checking availability) — write-only, one event per task.
+- No per-contact/relationship-specific voice variants (e.g. more formal to
+  a manager, casual to a friend) — a single overall voice profile only.
+- No automatic learning from edits made to sent drafts (comparing draft vs.
+  sent to infer corrections) — voice profile only comes from analyzing
+  existing sent mail, not from feedback loops on this tool's own drafts.
 
 ## Architecture
 
@@ -58,23 +72,27 @@ ai-second-brain/
 ├── requirements.txt                # google-auth, google-auth-oauthlib, google-api-python-client
 ├── .claude/
 │   └── skills/
-│       └── inbox-digest/
-│           └── SKILL.md            # the skill: instructions + tool-call sequence
+│       ├── inbox-digest/
+│       │   └── SKILL.md            # the skill: instructions + tool-call sequence
+│       └── learn-voice/
+│           └── SKILL.md            # analyzes sent mail -> VOICE.md
 ├── scripts/
 │   ├── add_calendar_event.py       # real code: OAuth + Calendar API event creation
 │   └── test_add_calendar_event.py  # unit test with a mocked Calendar API client
 ├── examples/
-│   └── sample-digest.md            # anonymized fake-data example run output
+│   ├── sample-digest.md            # anonymized fake-data example run output
+│   └── sample-voice.md             # anonymized example of a generated voice profile
 ├── digests/                        # real output — gitignored (private inbox content)
+├── VOICE.md                        # real output — gitignored (derived from private sent mail)
 ├── credentials.json                # user's OAuth client secret — gitignored, never committed
 ├── token.json                      # OAuth refresh token, created on first run — gitignored
 └── .gitignore
 ```
 
-Only the skill, script, tests, README, LICENSE, `requirements.txt`, and
-anonymized example are tracked in git. `digests/*.md`, `credentials.json`,
-and `token.json` are gitignored — the first is private email content, the
-other two are secrets.
+Only the skills, script, tests, README, LICENSE, `requirements.txt`, and
+anonymized examples are tracked in git. `digests/*.md`, `VOICE.md`,
+`credentials.json`, and `token.json` are gitignored — the first two hold
+private email content, the last two are secrets.
 
 ## Skill behavior (`/inbox-digest`)
 
@@ -106,8 +124,12 @@ override passed as the skill's argument string, e.g. `/inbox-digest 48`
      heuristic, not silent guessing (noted in the digest as "no explicit
      date found, defaulted").
 4. **Act on judgments:**
-   - Reply-worthy → `create_draft` with proposed reply body. Never sent
-     automatically.
+   - Reply-worthy → read `VOICE.md` if it exists (both its auto-learned
+     and manual-overrides sections — see `/learn-voice` below; overrides
+     win on conflict) and draft the reply body to match that voice, then
+     `create_draft`. Never sent automatically. If `VOICE.md` doesn't
+     exist yet, draft in a neutral professional tone and note in the
+     digest "no voice profile found — run /learn-voice to personalize."
    - Actionable → shell out to
      `python scripts/add_calendar_event.py --summary "..." --description "..." --date "..."`
      to create a Google Calendar event; capture the returned event link.
@@ -117,6 +139,47 @@ override passed as the skill's argument string, e.g. `/inbox-digest 48`
 6. **Report.** Short in-chat summary: N threads processed, M drafts created,
    K calendar events created, and how many (if any) were left unprocessed
    due to the cap.
+
+## Skill behavior (`/learn-voice`)
+
+Invoked manually as `/learn-voice`, optionally with a sample-size override
+(default 30 sent messages). Steps:
+
+1. **Preserve existing manual notes.** If `VOICE.md` already exists, read
+   it and keep its "Manual overrides" section verbatim — only the
+   "Auto-learned patterns" section gets regenerated.
+2. **Sample sent mail.** `search_threads` with query `in:sent`, most
+   recent N (default 30). `get_message` for each. If fewer than ~10 sent
+   messages exist, still proceed but note in the output that the profile
+   is low-confidence given the small sample.
+3. **Synthesize a profile** (Claude reasoning inline, no separate
+   NLP/style-scoring code): typical greeting, typical sign-off, formality
+   level, typical reply length, recurring phrases/quirks, tone
+   description. This is a judgment call, same as the reply/actionable
+   calls in `/inbox-digest` — not a scored model.
+4. **Write `VOICE.md`**, replacing only the auto-learned section:
+
+   ```
+   # My Email Voice
+
+   ## Auto-learned patterns (regenerated by /learn-voice — do not hand-edit this section)
+   - Tone: ...
+   - Typical greeting: ...
+   - Typical sign-off: ...
+   - Length/style: ...
+   - Recurring phrases: ...
+
+   ## Manual overrides (preserved across /learn-voice runs — edit freely)
+   (empty until the user adds notes here)
+   ```
+5. **Report.** How many sent messages were sampled and a one-line summary
+   of the inferred tone, so the user can sanity-check it against
+   `VOICE.md` directly.
+
+`VOICE.md` is derived from real private correspondence, so it's gitignored
+like `digests/`, never committed. `examples/sample-voice.md` (an
+invented, anonymized profile) ships instead, to show the shape without
+exposing real writing.
 
 ## `scripts/add_calendar_event.py`
 
@@ -166,10 +229,13 @@ Calendar event: Yes — https://calendar.google.com/event?eid=...
 
 ## Scheduling (future phase, not built now)
 
-Once proven on demand, wrap the same skill with the existing `schedule`
-skill (cron-based cloud agent) to fire `/inbox-digest` on a recurring
-schedule (e.g. daily). No architecture change — same skill, same tool
-calls, just an automatic trigger instead of a manual one.
+Once proven on demand, wrap the relevant skill with the existing
+`schedule` skill (cron-based cloud agent) — same mechanism for both,
+no new scheduling infrastructure:
+- `/inbox-digest` on a recurring schedule (e.g. daily).
+- `/learn-voice` on a slower recurring schedule (e.g. monthly), to keep
+  the voice profile from going stale as writing style evolves, without
+  clobbering anything in the Manual overrides section.
 
 ## Repo/showcase considerations
 
@@ -179,8 +245,9 @@ calls, just an automatic trigger instead of a manual one.
   enabled and an OAuth client (`credentials.json`) the user creates
   themselves — this is not a hosted or installable end-user product, and
   no secrets ship in the repo.
-- `examples/sample-digest.md` uses invented sender names/subjects so the
-  repo demonstrates output shape without exposing any real inbox content.
+- `examples/sample-digest.md` and `examples/sample-voice.md` use invented
+  names/subjects/writing so the repo demonstrates output shape without
+  exposing any real inbox content or real writing style.
 
 ## Testing / verification
 
@@ -196,3 +263,8 @@ calls, just an automatic trigger instead of a manual one.
   `events().insert()` is called with the expected event body for both a
   timed and an all-day event — no real credentials or network calls
   needed to run it. Plus manual `--dry-run` sanity checks during setup.
+- **`/learn-voice` (prompt-driven):** run it once against a real Sent
+  folder, confirm `VOICE.md` is created with all expected subsections
+  populated; hand-add a note under Manual overrides, re-run `/learn-voice`,
+  and confirm the manual note survives while the auto-learned section
+  updates.
