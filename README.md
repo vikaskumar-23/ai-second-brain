@@ -41,14 +41,45 @@ gitignored since it's derived from your actual inbox.
    Claude Code session already has.
 2. **A Google Cloud project with the Calendar API enabled, and an OAuth
    client of your own**, since there's no equivalent MCP shortcut for
-   Calendar:
-   - Go to the Google Cloud Console and create a project (or reuse one).
-   - Enable the **Google Calendar API** for that project.
-   - Configure the OAuth consent screen (choose "External" for a personal
-     Google account, add your own email as a test user).
-   - Create an **OAuth client ID** with application type **Desktop app**.
-   - Download its JSON and save it as `credentials.json` in this repo's
-     root (already gitignored — it will never be committed).
+   Calendar. Free, one-time, about 10 minutes:
+
+   1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+      and sign in with the Google account whose calendar you want events
+      created on.
+   2. Click the project dropdown (top left) → **New Project** → give it
+      any name (e.g. `ai-second-brain`) → **Create**.
+   3. Go to **APIs & Services → Library**, search for **Google Calendar
+      API**, open it, and click **Enable**.
+   4. Go to **APIs & Services → OAuth consent screen**, click **Get
+      Started**, and fill in:
+      - App name: anything (e.g. `Inbox Digest`)
+      - User support email: your email
+      - Audience: **External**
+      - Add your own email under **test users**
+      - Developer contact email: your email
+      - Save through the remaining steps. Leave **Publishing status** as
+        **Testing** — moving it to Production requires Google's formal
+        app-verification review for the Calendar scope, which is
+        overkill for a personal tool only you will ever authenticate.
+   5. Go to **APIs & Services → Credentials → Create Credentials →
+      OAuth client ID**. Application type: **Desktop app**. Give it any
+      name and click **Create**.
+   6. Click **Download JSON** on the client you just created (or find it
+      later in the Credentials list and click its download icon).
+   7. Rename the downloaded file to `credentials.json` and place it in
+      this repo's root directory (already gitignored — it will never be
+      committed).
+
+   **Known limitation:** because the app stays in Testing mode, Google
+   expires its refresh token every **7 days**. Roughly once a week, the
+   next `/inbox-digest` run that needs to create a calendar event will
+   pop open a browser for a ~10-second re-consent instead of running
+   silently — expected, not a bug. The very first time you authenticate,
+   Google will also show an "unverified app" warning screen (since this
+   is your own personal, unreviewed OAuth client) — click **Advanced →
+   Go to `<app name>` (unsafe) → Continue**. This is safe; it's just
+   Google flagging that the app hasn't gone through their formal review,
+   which isn't necessary for a single-user personal tool.
 3. **Python 3.9+**.
 
 ## Setup
@@ -61,9 +92,11 @@ Place your downloaded `credentials.json` in the repo root (see
 Prerequisites above).
 
 The first time `/inbox-digest` creates a calendar event, the underlying
-script opens a browser for one-time Google OAuth consent and caches a
-refresh token in `token.json` (also gitignored). Every run after that is
-silent.
+script opens a browser for Google OAuth consent and caches a refresh
+token in `token.json` (also gitignored). Subsequent runs are silent —
+until the token expires after 7 days (see the Testing-mode limitation
+under Prerequisites above), at which point one more quick browser consent
+is needed.
 
 ## Usage
 
