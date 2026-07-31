@@ -1,0 +1,8 @@
+digests/
+VOICE.md
+credentials.json
+token.json
+__pycache__/
+*.pyc
+.venv/
+venv/
