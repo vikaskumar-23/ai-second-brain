@@ -62,6 +62,14 @@ vector DB, no cross-session agent memory beyond that file.
 - No automatic learning from edits made to sent drafts (comparing draft vs.
   sent to infer corrections) — voice profile only comes from analyzing
   existing sent mail, not from feedback loops on this tool's own drafts.
+- No semantic/vector search over past digests, no multi-platform reach
+  (Slack/Asana/Linear/GitHub), no auto-send tier, no habit-tracking
+  nudges — all present in the larger reference project this is scoped
+  down from, all declined here as solving problems this tool doesn't have.
+- No `SessionStart` hook nudge, no sender allow/deny (VIP/ignore) list, no
+  separate "Security & Permissions" README section — considered when
+  comparing against the reference project, explicitly declined for this
+  pass in favor of priority flagging only.
 
 ## Architecture
 
@@ -123,6 +131,9 @@ override passed as the skill's argument string, e.g. `/inbox-digest 48`
      default to an all-day event on the next business day — a documented
      heuristic, not silent guessing (noted in the digest as "no explicit
      date found, defaulted").
+   - **Priority** — Urgent / Normal / Low, the same inline judgment call
+     as the others (sender urgency cues, explicit deadlines, direct asks
+     from a person vs. automated/bulk mail). No separate scoring system.
 4. **Act on judgments:**
    - Reply-worthy → read `VOICE.md` if it exists (both its auto-learned
      and manual-overrides sections — see `/learn-voice` below; overrides
@@ -137,8 +148,8 @@ override passed as the skill's argument string, e.g. `/inbox-digest 48`
 5. **Mark processed.** `label_thread` with `SecondBrain/Processed` so the
    next run's search excludes it regardless of read/unread state.
 6. **Report.** Short in-chat summary: N threads processed, M drafts created,
-   K calendar events created, and how many (if any) were left unprocessed
-   due to the cap.
+   K calendar events created, J flagged Urgent, and how many (if any) were
+   left unprocessed due to the cap.
 
 ## Skill behavior (`/learn-voice`)
 
@@ -208,6 +219,7 @@ A single-purpose CLI script, not a library or service:
 # Inbox Digest — 2026-08-01
 
 ## "Q3 budget review" — jane@co.com
+Priority: Urgent
 Summary: Jane needs sign-off on Q3 numbers by Friday.
 Reply drafted: Yes
 Calendar event: Yes — https://calendar.google.com/event?eid=...
