@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import InstalledAppFlow, WSGITimeoutError
 from googleapiclient.discovery import build
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
@@ -44,7 +44,22 @@ def get_calendar_service(credentials_path="credentials.json", token_path="token.
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
-            creds = flow.run_local_server(port=0)
+            # ponytail: pinned to 127.0.0.1 with a 5-minute window, because the
+            # default host="localhost" can resolve to IPv6 first on Windows,
+            # which this loopback server never binds to — that mismatch
+            # otherwise surfaces as a confusing NoneType crash instead of a
+            # clean timeout. Raise the ceiling if 5 minutes is too short.
+            try:
+                creds = flow.run_local_server(
+                    port=0, bind_addr="127.0.0.1", timeout_seconds=300
+                )
+            except WSGITimeoutError:
+                raise SystemExit(
+                    "Timed out waiting for Google sign-in (5 min limit). Make "
+                    "sure the browser window opened to the printed URL, and "
+                    "complete sign-in and consent there, then re-run this "
+                    "command."
+                )
         with open(token_path, "w") as f:
             f.write(creds.to_json())
     return build("calendar", "v3", credentials=creds)
