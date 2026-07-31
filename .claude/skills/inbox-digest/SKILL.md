@@ -32,7 +32,23 @@ minimum 1.
    Take at most the 50 most recent threads returned. If more than 50
    matched, remember the overflow count for the final report.
 
-3. **For each thread (oldest first):**
+3. **Check calendar readiness once, before looping.** Check whether
+   `token.json` exists at the repo root.
+   - If it does **not** exist, calendar-event creation cannot run this
+     turn: the first-ever Calendar OAuth authorization requires a human
+     to click through a browser consent flow, which does not work
+     reliably as a subprocess launched mid-loop by an automated run —
+     don't attempt `add_calendar_event.py` for any thread this run. Note
+     once, up front: "Calendar integration not yet authorized — run the
+     one-time bootstrap in README's Setup section, then re-run
+     `/inbox-digest` to create events for actionable items." Still do
+     summaries, priorities, and reply drafts normally for every thread —
+     only the calendar-event step is skipped, and record "No — calendar
+     not yet authorized" for it in each digest entry rather than
+     attempting and failing per thread.
+   - If it exists, proceed normally per-thread (step 4d below).
+
+4. **For each thread (oldest first):**
 
    a. Fetch full content with `mcp__claude_ai_Gmail__get_thread` (or
       `mcp__claude_ai_Gmail__get_message` for single-message threads).
@@ -66,16 +82,20 @@ minimum 1.
       - If this call fails, record "reply draft failed" for this thread
         and continue to the next thread — don't stop the run.
 
-   d. If actionable:
+   d. If actionable and `token.json` exists (per step 3 above):
       - Run:
         `python scripts/add_calendar_event.py --summary "<short task title>" --description "<1-2 sentence context: thread subject + sender>" --date "<resolved ISO date or date+time>"`
         (add `--all-day` if no specific time was found in the email).
       - Capture the printed event link (the script's stdout) for the digest.
       - If the script fails (non-zero exit), record "calendar event
         failed" for this thread. If the failure output mentions a
-        missing `credentials.json` or an incomplete OAuth flow, surface
-        that specific cause instead of a generic error. Continue to the
-        next thread.
+        missing `credentials.json`, surface that specific cause instead
+        of a generic error. Continue to the next thread. (An incomplete
+        OAuth flow shouldn't happen here since step 3 already checked
+        `token.json` first — if it still hangs, kill it and report that
+        the one-time bootstrap needs to be (re)run manually.)
+      If actionable but `token.json` does not exist, skip this step per
+      step 3's up-front note — do not attempt the script.
 
    e. Append an entry to `digests/YYYY-MM-DD.md` (today's date, create
       the file with a top-level `# Inbox Digest — YYYY-MM-DD` heading if
@@ -89,14 +109,24 @@ minimum 1.
       Calendar event: <Yes — <link>|No — reason if failed or skipped>
       ```
 
-4. **Mark each processed thread** with `mcp__claude_ai_Gmail__label_thread`
+5. **Mark each processed thread** with `mcp__claude_ai_Gmail__label_thread`
    (label: `SecondBrain/Processed`), regardless of read/unread state —
-   including threads where a sub-step (3c or 3d) failed, so failures
-   don't get silently retried forever. If the failure was in
-   `search_threads` itself (step 2, not per-thread), do NOT label
-   anything and instead report the search failure directly to the user.
+   including threads where a sub-step (4c or 4d) failed or was skipped
+   for missing calendar auth, so failures don't get silently retried
+   forever. If the failure was in `search_threads` itself (step 2, not
+   per-thread), do NOT label anything and instead report the search
+   failure directly to the user.
 
-5. **Report** back in chat: number of threads processed, drafts created,
+   **Exception:** if calendar auth was missing (step 3) and a thread was
+   actionable, do **not** label it processed — leave it unlabeled so a
+   future `/inbox-digest` run (after the one-time bootstrap) picks it up
+   and actually creates its calendar event, instead of the task being
+   silently lost. Threads that were only reply-worthy/summarized (no
+   pending calendar action) still get labeled normally.
+
+6. **Report** back in chat: number of threads processed, drafts created,
    calendar events created, threads flagged Urgent, and (if any) how many
    candidate threads were left unprocessed beyond the 50-thread cap
-   (suggest re-running with a narrower lookback window if so).
+   (suggest re-running with a narrower lookback window if so). If
+   calendar auth was missing this run, repeat the one-time bootstrap
+   reminder from step 3 here too.

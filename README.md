@@ -91,12 +91,29 @@ pip install -r requirements.txt
 Place your downloaded `credentials.json` in the repo root (see
 Prerequisites above).
 
-The first time `/inbox-digest` creates a calendar event, the underlying
-script opens a browser for Google OAuth consent and caches a refresh
-token in `token.json` (also gitignored). Subsequent runs are silent —
-until the token expires after 7 days (see the Testing-mode limitation
-under Prerequisites above), at which point one more quick browser consent
-is needed.
+**Before running `/inbox-digest` for the first time, complete a one-time
+Calendar OAuth bootstrap yourself, directly in your own terminal** (not
+through Claude Code). This step needs a human to click through a browser
+consent flow, which doesn't work reliably as a subprocess launched
+automatically mid-digest-run — `/inbox-digest` checks for this and skips
+calendar-event creation gracefully if it hasn't been done yet, rather
+than hanging.
+
+```bash
+python scripts/add_calendar_event.py --summary "Calendar bootstrap test" --description "one-time OAuth setup" --date "2026-08-10T09:00:00"
+```
+
+A browser window will open. Sign in, and click through Google's
+"unverified app" warning (**Advanced → Go to `<app name>` (unsafe) →
+Continue** — safe, since it's your own personal OAuth client). Once
+approved, the command prints the created event's link and a `token.json`
+file appears in the repo root. Delete that test event from your calendar
+afterward.
+
+After this one-time bootstrap, `/inbox-digest` creates calendar events
+silently — until the token expires after 7 days (see the Testing-mode
+limitation under Prerequisites above), at which point one more quick
+browser consent is needed.
 
 ## Usage
 
