@@ -127,13 +127,25 @@ Inside a Claude Code session opened in this repo:
 
 ### Quick launch (Windows)
 
-`scripts/launch.bat` opens a terminal already in this repo's root and
-starts Claude Code interactively — one double-click instead of manually
-navigating here each time. You still type `/inbox-digest` or
-`/learn-voice` yourself once it opens. To pin it: right-click the file →
-**Show more options → Create shortcut**, then drag that shortcut to your
-taskbar (or Start, then to the taskbar — the exact right-click options
-vary by Windows version).
+`scripts/launch.bat` opens a terminal already in this repo's root,
+starts Claude Code interactively, and auto-submits `/inbox-digest` as the
+first message — no typing needed. It's still fully interactive: every
+Gmail/Calendar action still asks for your permission normally, nothing
+is bypassed, you can watch and stop it like any other session.
+
+To run `/learn-voice` instead, pass it as an argument:
+`scripts\launch.bat "/learn-voice"`.
+
+Pin it to your taskbar/Start (Windows sometimes hides "Pin to taskbar"
+for raw `.bat` files, so use a shortcut through `cmd.exe` if the direct
+option is missing):
+
+1. Right-click Desktop → **New → Shortcut**.
+2. Location: `cmd.exe /k "C:\path\to\ai-second-brain\scripts\launch.bat"`
+   — or add `"/learn-voice"` at the end for a second shortcut that runs
+   that skill instead.
+3. Name it, then right-click the shortcut → **Pin to Start** / **Pin to
+   taskbar**.
 
 ## Automatic daily digest (email-only)
 

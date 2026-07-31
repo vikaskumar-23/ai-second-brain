@@ -1,3 +1,7 @@
 @echo off
 cd /d "%~dp0.."
-claude
+if "%~1"=="" (
+    claude "/inbox-digest"
+) else (
+    claude "%~1"
+)
