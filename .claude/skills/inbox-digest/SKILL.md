@@ -65,7 +65,12 @@ minimum 1.
       - **Due date** (only if actionable): resolve any explicit or
         relative date mentioned (e.g. "by Friday") against today's date.
         If no date is mentioned, default to the next business day and
-        note that it was defaulted.
+        note that it was defaulted. Times stated in an email are in the
+        sender's local timezone, not necessarily UTC — the script's
+        `--timezone` default (`Asia/Kolkata`) covers the common case;
+        only pass `--timezone` explicitly when the email itself clearly
+        states a different zone (e.g. a contest site announcing a UTC
+        start time).
       - **Priority**: Urgent / Normal / Low, based on sender urgency
         cues, explicit deadlines, and whether it's a direct ask from a
         person vs. automated/bulk mail.
@@ -85,7 +90,9 @@ minimum 1.
    d. If actionable and `token.json` exists (per step 3 above):
       - Run:
         `python scripts/add_calendar_event.py --summary "<short task title>" --description "<1-2 sentence context: thread subject + sender>" --date "<resolved ISO date or date+time>"`
-        (add `--all-day` if no specific time was found in the email).
+        (add `--all-day` if no specific time was found in the email; add
+        `--timezone "<IANA zone>"` only when the email states a time in a
+        zone other than the script's `Asia/Kolkata` default).
       - Capture the printed event link (the script's stdout) for the digest.
       - If the script fails (non-zero exit), record "calendar event
         failed" for this thread. If the failure output mentions a

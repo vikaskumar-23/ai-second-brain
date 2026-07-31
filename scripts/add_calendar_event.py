@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 
 
-def build_event_body(summary, description, date_str, all_day=False):
+def build_event_body(summary, description, date_str, all_day=False, timezone="Asia/Kolkata"):
     if all_day:
         start_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         end_date = start_date + timedelta(days=1)
@@ -25,13 +25,11 @@ def build_event_body(summary, description, date_str, all_day=False):
 
     start_dt = datetime.fromisoformat(date_str)
     end_dt = start_dt + timedelta(minutes=30)
-    # ponytail: timezone fixed to UTC, add a --timezone flag (or tzlocal) if
-    # events show up at the wrong local time.
     return {
         "summary": summary,
         "description": description,
-        "start": {"dateTime": start_dt.isoformat(), "timeZone": "UTC"},
-        "end": {"dateTime": end_dt.isoformat(), "timeZone": "UTC"},
+        "start": {"dateTime": start_dt.isoformat(), "timeZone": timezone},
+        "end": {"dateTime": end_dt.isoformat(), "timeZone": timezone},
     }
 
 
@@ -83,13 +81,18 @@ def main():
     )
     parser.add_argument("--all-day", action="store_true")
     parser.add_argument(
+        "--timezone",
+        default="Asia/Kolkata",
+        help="IANA timezone for --date when it includes a time (default: Asia/Kolkata, IIT Goa's timezone)",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Print the event body, don't call the API"
     )
     parser.add_argument("--credentials", default="credentials.json")
     parser.add_argument("--token", default="token.json")
     args = parser.parse_args()
 
-    body = build_event_body(args.summary, args.description, args.date, args.all_day)
+    body = build_event_body(args.summary, args.description, args.date, args.all_day, args.timezone)
 
     if args.dry_run:
         print(json.dumps(body, indent=2))

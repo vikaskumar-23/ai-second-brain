@@ -5,7 +5,7 @@ from add_calendar_event import build_event_body, create_event
 
 
 class TestBuildEventBody(unittest.TestCase):
-    def test_timed_event(self):
+    def test_timed_event_defaults_to_asia_kolkata(self):
         body = build_event_body(
             summary="Review Q3 numbers",
             description="From: jane@co.com — Q3 budget review",
@@ -15,10 +15,25 @@ class TestBuildEventBody(unittest.TestCase):
         self.assertEqual(body["summary"], "Review Q3 numbers")
         self.assertEqual(body["description"], "From: jane@co.com — Q3 budget review")
         self.assertEqual(
-            body["start"], {"dateTime": "2026-08-05T15:00:00", "timeZone": "UTC"}
+            body["start"], {"dateTime": "2026-08-05T15:00:00", "timeZone": "Asia/Kolkata"}
         )
         self.assertEqual(
-            body["end"], {"dateTime": "2026-08-05T15:30:00", "timeZone": "UTC"}
+            body["end"], {"dateTime": "2026-08-05T15:30:00", "timeZone": "Asia/Kolkata"}
+        )
+
+    def test_timed_event_custom_timezone(self):
+        body = build_event_body(
+            summary="UTC-stated contest",
+            description="From: noreply@codeforces.com",
+            date_str="2026-08-01T14:35:00",
+            all_day=False,
+            timezone="UTC",
+        )
+        self.assertEqual(
+            body["start"], {"dateTime": "2026-08-01T14:35:00", "timeZone": "UTC"}
+        )
+        self.assertEqual(
+            body["end"], {"dateTime": "2026-08-01T15:05:00", "timeZone": "UTC"}
         )
 
     def test_all_day_event(self):

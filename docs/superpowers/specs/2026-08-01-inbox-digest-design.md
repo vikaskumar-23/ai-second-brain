@@ -202,9 +202,19 @@ A single-purpose CLI script, not a library or service:
   browser for one-time consent, caches the resulting refresh token in
   `token.json`. Subsequent runs reuse the cached token silently.
 - **Args**: `--summary`, `--description`, `--date` (ISO date, or
-  date+time), `--all-day` (flag; used when no explicit time was found).
+  date+time), `--all-day` (flag; used when no explicit time was found),
+  `--timezone` (IANA name, default `Asia/Kolkata`).
 - **Action**: builds an event body and calls
   `service.events().insert(calendarId='primary', body=...)`.
+- **Timezone (rev. 5 fix)**: originally hardcoded `timeZone: "UTC"` on
+  every timed event regardless of what timezone the source email's time
+  actually meant. Since inbox-digest resolves times straight from email
+  text (which for this user is IIT Goa, i.e. Asia/Kolkata local time),
+  this silently shifted every timed event by 5.5 hours (a 2pm meeting
+  landed on the calendar at 7:30pm). Fixed by defaulting `--timezone` to
+  `Asia/Kolkata` and passing it through; the skill should pass `UTC`
+  explicitly only when the source email itself states a UTC time (e.g.
+  Codeforces contest announcements).
 - **Output**: prints the created event's `htmlLink` to stdout (nothing
   else) so the calling skill can capture it and put it in the digest.
 - **`--dry-run` flag**: builds and prints the event body without calling
