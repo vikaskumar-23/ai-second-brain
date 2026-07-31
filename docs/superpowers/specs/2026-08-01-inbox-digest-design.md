@@ -1,7 +1,7 @@
 # Inbox Digest — Design Spec
 
-**Date:** 2026-08-01 (rev. 3 — adds learned reply-voice profile)
-**Status:** Pending user re-approval after voice-profile revision
+**Date:** 2026-08-01 (rev. 4 — daily cloud routine for email-triage half)
+**Status:** Implemented and running (see Scheduling section)
 
 ## Summary
 
@@ -239,15 +239,43 @@ Calendar event: Yes — https://calendar.google.com/event?eid=...
   cause (not a generic error) since it's a one-time setup step documented
   in the README.
 
-## Scheduling (future phase, not built now)
+## Scheduling (rev. 4 — partially built)
 
-Once proven on demand, wrap the relevant skill with the existing
-`schedule` skill (cron-based cloud agent) — same mechanism for both,
-no new scheduling infrastructure:
-- `/inbox-digest` on a recurring schedule (e.g. daily).
-- `/learn-voice` on a slower recurring schedule (e.g. monthly), to keep
-  the voice profile from going stale as writing style evolves, without
-  clobbering anything in the Manual overrides section.
+`/inbox-digest` is now wrapped in a daily cloud routine via Claude Code's
+`schedule` skill ("Daily Inbox Digest", `30 2 * * *` UTC = 8am IST). Same
+skill, same tool calls, no new architecture — just an automatic trigger.
+
+Cloud routines get a fresh git checkout per run with no access to the
+local machine, which surfaced two real consequences discovered only once
+this was actually wired up:
+- **Calendar events don't fire from cloud runs.** `credentials.json` and
+  `token.json` are local-only (correctly gitignored), so they don't exist
+  in the cloud checkout. `/inbox-digest`'s step 3 `token.json` check (see
+  Skill behavior above) makes this a graceful no-op rather than a crash,
+  but it means the cloud routine only ever delivers the email-triage half
+  (summaries, reply drafts, labeling) — calendar events for actionable
+  items still require a local run.
+- **`VOICE.md` can't follow along either**, same reason — cloud-drafted
+  replies are always neutral-tone.
+- `digests/*.md` also can't persist between cloud runs (gitignored), so
+  `/inbox-digest` step 6 now reports the full per-thread content in the
+  chat response itself, not just aggregate counts — the routine's run
+  history on claude.ai/code/routines is the durable record for cloud
+  runs, since the file can't be.
+
+`/learn-voice` is deliberately **not** cloud-scheduled, for the same
+fresh-checkout reason: a cloud-generated `VOICE.md` would evaporate with
+the ephemeral session and never reach any future run, local or cloud. It
+only makes sense run locally, where it actually persists on disk.
+
+Getting calendar events and voice personalization automated too (not
+just email triage) would require local scheduling (e.g. Windows Task
+Scheduler) instead of a cloud routine, since that needs access to local
+secrets that shouldn't leave the machine. Not built — considered
+out of scope for now; a fully unattended, permission-bypassed local
+script also has a real oversight cost (nobody watching before it drafts
+emails or creates events) that's worth weighing deliberately rather than
+defaulting into.
 
 ## Repo/showcase considerations
 
