@@ -124,9 +124,16 @@ minimum 1.
    silently lost. Threads that were only reply-worthy/summarized (no
    pending calendar action) still get labeled normally.
 
-6. **Report** back in chat: number of threads processed, drafts created,
-   calendar events created, threads flagged Urgent, and (if any) how many
-   candidate threads were left unprocessed beyond the 50-thread cap
-   (suggest re-running with a narrower lookback window if so). If
-   calendar auth was missing this run, repeat the one-time bootstrap
-   reminder from step 3 here too.
+6. **Report** back in chat with the full per-thread content, not just
+   totals — the same entries written to `digests/YYYY-MM-DD.md` (subject,
+   sender, priority, summary, reply/calendar outcome), plus the aggregate
+   counts: threads processed, drafts created, calendar events created,
+   threads flagged Urgent, and (if any) how many candidate threads were
+   left unprocessed beyond the 50-thread cap (suggest re-running with a
+   narrower lookback window if so). If calendar auth was missing this
+   run, repeat the one-time bootstrap reminder from step 3 here too.
+
+   This duplication is deliberate: `digests/*.md` is gitignored and
+   local-only, so it doesn't exist at all in an ephemeral environment
+   (e.g. a scheduled cloud routine with a fresh git checkout each run) —
+   the chat response itself is the only durable record in that case.
