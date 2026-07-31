@@ -125,11 +125,48 @@ Inside a Claude Code session opened in this repo:
 /inbox-digest 48    # or override the lookback window, in hours
 ```
 
+### Quick launch (Windows)
+
+`scripts/launch.bat` opens a terminal already in this repo's root and
+starts Claude Code interactively — one double-click instead of manually
+navigating here each time. You still type `/inbox-digest` or
+`/learn-voice` yourself once it opens. To pin it: right-click the file →
+**Show more options → Create shortcut**, then drag that shortcut to your
+taskbar (or Start, then to the taskbar — the exact right-click options
+vary by Windows version).
+
+## Automatic daily digest (email-only)
+
+A scheduled cloud routine runs `/inbox-digest` once a day via Claude
+Code's `schedule` skill, so a digest exists without you opening a session
+at all. Two things are true about it that don't apply to a local run:
+
+- **No calendar events.** Cloud routines get a fresh git checkout each
+  run with no access to your local machine — `credentials.json` and
+  `token.json` don't exist there, so calendar-event creation is skipped
+  every time (by design, via the same `token.json` check documented
+  above). You still need a local `/inbox-digest` run to actually get
+  calendar events for actionable items.
+- **No voice personalization.** `VOICE.md` is gitignored and local-only
+  for the same reason, so cloud-drafted replies are always neutral-tone,
+  never the learned voice from `/learn-voice`.
+- The full per-thread digest (not just counts) is included in the
+  routine's chat output, since `digests/*.md` itself can't persist
+  between cloud runs either — view it at the routine's page on
+  [claude.ai/code/routines](https://claude.ai/code/routines).
+
+`/learn-voice` is not cloud-scheduled at all, for the same
+fresh-checkout-every-run reason — it only makes sense run locally, where
+`VOICE.md` actually persists on disk for future local runs to read.
+
 ## What this deliberately doesn't do
 
-- Doesn't run automatically on a schedule (yet) — see the design spec's
-  "Scheduling" section for how that would be layered on later via Claude
-  Code's `schedule` skill, without any architecture change.
+- Doesn't run the full pipeline (including calendar events and voice
+  personalization) automatically — only the email-triage half is
+  cloud-scheduled, per the limitations above. Getting calendar/voice
+  automated too would mean local scheduling (e.g. Windows Task
+  Scheduler) instead of a cloud routine, since it needs access to local
+  secrets that shouldn't leave the machine.
 - Never sends an email or auto-approves anything — every reply is a draft
   you review; every calendar event is something you can just delete.
 - No multi-account, no non-Gmail providers, no semantic/vector memory, no
