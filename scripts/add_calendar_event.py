@@ -10,6 +10,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow, WSGITimeoutError
 from googleapiclient.discovery import build
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+CREDENTIALS_PATH = "credentials.json"
+TOKEN_PATH = "token.json"
 
 
 def build_event_body(summary, description, date_str, all_day=False, timezone="Asia/Kolkata"):
@@ -33,15 +35,15 @@ def build_event_body(summary, description, date_str, all_day=False, timezone="As
     }
 
 
-def get_calendar_service(credentials_path="credentials.json", token_path="token.json"):
+def get_calendar_service():
     creds = None
-    if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+    if os.path.exists(TOKEN_PATH):
+        creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
             # ponytail: pinned to 127.0.0.1 with a 5-minute window, because the
             # default host="localhost" can resolve to IPv6 first on Windows,
             # which this loopback server never binds to — that mismatch
@@ -58,7 +60,7 @@ def get_calendar_service(credentials_path="credentials.json", token_path="token.
                     "complete sign-in and consent there, then re-run this "
                     "command."
                 )
-        with open(token_path, "w") as f:
+        with open(TOKEN_PATH, "w") as f:
             f.write(creds.to_json())
     return build("calendar", "v3", credentials=creds)
 
@@ -88,8 +90,6 @@ def main():
     parser.add_argument(
         "--dry-run", action="store_true", help="Print the event body, don't call the API"
     )
-    parser.add_argument("--credentials", default="credentials.json")
-    parser.add_argument("--token", default="token.json")
     args = parser.parse_args()
 
     body = build_event_body(args.summary, args.description, args.date, args.all_day, args.timezone)
@@ -98,7 +98,7 @@ def main():
         print(json.dumps(body, indent=2))
         return
 
-    service = get_calendar_service(args.credentials, args.token)
+    service = get_calendar_service()
     print(create_event(service, body))
 
 
